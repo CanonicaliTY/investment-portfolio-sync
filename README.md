@@ -1,39 +1,65 @@
-# Trading 212 投资组合只读同步
+# Trading 212 Portfolio Sync
 
-这个项目把 Trading 212 Stocks ISA/Invest 账户的当前状态同步成一个适合 ChatGPT 阅读的 JSON 快照：
+A small, read-only Python app that exports a Trading 212 Invest or Stocks ISA portfolio to a clean JSON file.
+
+It is useful for personal dashboards, backups, automations, and AI-assisted portfolio reviews.
 
 ```text
-Trading 212 → 私有 GitHub 仓库 → ChatGPT 每日投资复盘
+Trading 212 → portfolio/latest.json → your own tools
 ```
 
-应用固定连接 Trading 212 live Public API，只实现以下官方 `GET` 端点：
+## Safety first
 
-- `/equity/account/summary`
-- `/equity/positions`
-- `/equity/orders`
-- `/equity/history/orders`
-- `/equity/history/transactions`
+- Uses only five documented `GET` endpoints.
+- Cannot place or cancel orders.
+- Reads credentials only from environment variables or GitHub Secrets.
+- Never includes credentials or API error bodies in the snapshot.
 
-代码中没有下单、撤单、修改 Pie 或任何 HTTP 写操作。官方文档参考：[认证](https://docs.trading212.com/api/section/authentication/building-the-authorization-header)、[账户摘要](https://docs.trading212.com/api/accounts/getaccountsummary)、[持仓](https://docs.trading212.com/api/positions)、[未完成订单](https://docs.trading212.com/api/orders/orders)、[分页](https://docs.trading212.com/api/section/pagination)。
+The generated snapshot contains private financial information. Keep any repository that stores a real snapshot **private**.
 
-## 本地安装
+## Recommended setup
 
-需要 Python 3.11 或更新版本。在仓库根目录运行：
+Do not fork this public repository if you need a private copy: public forks normally remain public.
+
+Instead, click **Use this template → Create a new repository**, then choose **Private**. This gives you an independent repository that can safely store your snapshot and Secrets.
+
+### 1. Create read-only Trading 212 credentials
+
+Create a dedicated API key in Trading 212 with only the permissions needed to read account data, positions, orders, and history. Do not enable trading or modification permissions.
+
+### 2. Add GitHub Secrets
+
+In your new private repository, open:
+
+**Settings → Secrets and variables → Actions → New repository secret**
+
+Add:
+
+- `T212_API_KEY`
+- `T212_API_SECRET`
+
+Never put the values in `.env.example`, source code, issues, or chat messages.
+
+### 3. Run the sync
+
+Open **Actions → Portfolio sync → Run workflow**.
+
+The workflow updates `portfolio/latest.json` and commits it only when the content changes.
+
+If the workflow cannot push, enable **Settings → Actions → General → Workflow permissions → Read and write permissions**.
+
+## Run locally
+
+Requires Python 3.11 or newer.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install --upgrade pip
 python -m pip install -e .
-```
-
-复制环境变量模板。`.env` 已被 Git 忽略，但程序不会主动读取文件，避免增加依赖或意外处理秘密：
-
-```bash
 cp .env.example .env
 ```
 
-在本地编辑 `.env`，只在等号后填入 Trading 212 生成的 API key 与 secret。不要把值粘贴到聊天、Issue 或日志中。载入并运行：
+Add your credentials to `.env`, load them, and run the sync:
 
 ```bash
 set -a
@@ -42,57 +68,44 @@ set +a
 python -m trading212_sync
 ```
 
-缺少凭据时，程序会明确失败，但不会打印凭据。默认每类历史记录最多读取 100 条，可用 `--history-limit` 调整：
+`.env` is ignored by Git. The application does not load it automatically.
 
-```bash
-python -m trading212_sync --history-limit 50
+## Optional daily schedule
+
+The public template is manual by default so it does not make assumptions about your timezone or review routine.
+
+To enable a daily sync, add a `schedule` entry under `on` in `.github/workflows/portfolio-sync.yml`:
+
+```yaml
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 18 * * *"
 ```
 
-## 输出格式
+GitHub cron uses UTC and scheduled runs can be delayed. Adjust the expression for your timezone and daylight-saving requirements.
 
-结果原子写入 `portfolio/latest.json`，主要包括：
+## Snapshot contents
 
-- `account`：账户币种、总值、可交易现金、已投资价值与盈亏；
-- `positions`：原始 Trading 212 ticker、清理后的 ticker、名称、数量、价格、价值、盈亏与权重；
-- `pending_orders`：当前活动订单，只读；
-- `recent_activity`：最近历史订单与账户交易；
-- `derived`：现金/投资权重和最大持仓；
-- `sync_status`：核心及可选历史端点的同步状态。
+`portfolio/latest.json` contains:
 
-官方 API 没有可靠提供或无法可靠计算的值会写成 `null`，不会推测。历史端点若因 API key 权限不可用，核心账户、持仓及未完成订单仍会生成；错误响应正文不会写入快照。
+- account currency, cash, invested value, and profit/loss;
+- positions, prices, values, weights, and original Trading 212 tickers;
+- pending orders;
+- recent historical orders and transactions when permitted;
+- a UTC generation timestamp and sync status.
 
-ChatGPT 后续可读取仓库中的 `portfolio/latest.json`，把它视为 `generated_at` 时刻的账户快照。它不是实时行情源，也不是投资建议。
+Unavailable values are `null`; the application does not guess them. Optional history failures do not prevent the core portfolio snapshot from being written.
 
-## 测试
+## Development
 
-测试完全 mock 网络，不需要真实凭据：
+Tests use mocked HTTP responses and never require real credentials:
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## GitHub Actions 配置
+See [SECURITY.md](SECURITY.md) for the threat model and credential-handling details.
 
-1. 确保仓库是私有仓库。
-2. 在 GitHub 仓库打开 **Settings → Secrets and variables → Actions**。
-3. 添加两个 repository secrets：`T212_API_KEY` 和 `T212_API_SECRET`。
-4. 创建 Trading 212 API key 时只授予读取所需的最低权限；如条件允许，启用 IP 限制（注意 GitHub-hosted runner 的出口 IP 并不固定）。
-5. 在 **Actions → Portfolio sync → Run workflow** 手动运行一次。
-6. 确认 Actions 对仓库有写权限：**Settings → Actions → General → Workflow permissions → Read and write permissions**。组织策略可能覆盖工作流中的 `contents: write`。
-
-工作流只会暂存 `portfolio/latest.json`，文件无变化时不会提交，并使用仓库默认的 `GITHUB_TOKEN` 推送。
-
-### 17:50 Europe/London 与夏令时
-
-GitHub Actions cron 使用 UTC，本身不接受 IANA 时区。工作流同时安排 `16:50 UTC` 与 `17:50 UTC`：
-
-- BST（UTC+1）时允许 `16:50 UTC` 的运行；
-- GMT（UTC+0）时允许 `17:50 UTC` 的运行；
-- 另一个重复触发会在读取仓库或秘密之前被时区 gate 跳过。
-
-这样会随英国夏令时自动切换。GitHub 说明 scheduled workflow 在高负载时可能延迟，因此 17:50 是目标触发时间，不保证精确到分钟。
-
-## 安全说明
-
-详细威胁模型与凭据处理见 [SECURITY.md](SECURITY.md)。这个快照含敏感财务信息，因此仓库必须保持私有。轮换或撤销 Trading 212 API key 后，记得同时更新 GitHub Actions Secrets。
+This project uses the official Trading 212 Public API documentation for [authentication](https://docs.trading212.com/api/section/authentication/building-the-authorization-header), [account summaries](https://docs.trading212.com/api/accounts/getaccountsummary), [positions](https://docs.trading212.com/api/positions), [pending orders](https://docs.trading212.com/api/orders/orders), and [pagination](https://docs.trading212.com/api/section/pagination).
 

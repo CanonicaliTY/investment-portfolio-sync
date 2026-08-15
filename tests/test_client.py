@@ -72,12 +72,12 @@ class ClientTests(unittest.TestCase):
             {"items": [], "nextPagePath": "https://attacker.example/steal"}
         )
         client = Trading212Client("key", "secret", opener=opener)
-        with self.assertRaisesRegex(APIError, "不受信任"):
+        with self.assertRaisesRegex(APIError, "untrusted"):
             client.transactions(max_items=10)
 
     def test_non_object_list_item_is_rejected(self) -> None:
         client = Trading212Client("key", "secret", opener=QueueOpener(["bad-item"]))
-        with self.assertRaisesRegex(APIError, "列表项目"):
+        with self.assertRaisesRegex(APIError, "list item"):
             client.positions()
 
     def test_pagination_rejects_repeated_cursor(self) -> None:
@@ -87,7 +87,7 @@ class ClientTests(unittest.TestCase):
             {"items": [{"id": 2}], "nextPagePath": repeated},
         )
         client = Trading212Client("key", "secret", opener=opener)
-        with self.assertRaisesRegex(APIError, "重复"):
+        with self.assertRaisesRegex(APIError, "repeated"):
             client.transactions(max_items=5)
 
     def test_api_error_never_includes_secret_or_response_body(self) -> None:
@@ -135,7 +135,7 @@ class ClientTests(unittest.TestCase):
 
     def test_private_request_guard_rejects_write_endpoint(self) -> None:
         client = Trading212Client("key", "secret", opener=QueueOpener({}))
-        with self.assertRaisesRegex(APIError, "只读允许列表"):
+        with self.assertRaisesRegex(APIError, "read-only allowlist"):
             client._get_json("/equity/orders/market", expected_type=dict)
 
     def test_redirects_are_rejected(self) -> None:

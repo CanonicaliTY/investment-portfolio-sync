@@ -1,31 +1,39 @@
-# 安全说明
+# Security
 
-## 威胁模型
+## Threat model
 
-需要保护的资产包括 Trading 212 API key/secret，以及 `portfolio/latest.json` 中的账户和持仓信息。主要风险是秘密被提交、日志或异常泄漏；分页地址被利用向其他主机发送 Basic Auth；未来误加写接口；以及私有仓库或 GitHub Actions 权限被入侵。
+The sensitive assets are the Trading 212 API key and secret, plus the financial data written to `portfolio/latest.json`. The main risks are committing credentials, leaking them through logs or exceptions, forwarding Basic Auth to another host, accidentally adding write operations, and exposing a real snapshot in a public repository.
 
-## 当前控制措施
+## Built-in controls
 
-- 凭据只从 `T212_API_KEY` 和 `T212_API_SECRET` 环境变量读取。
-- `.env`、常见凭据文件、私钥文件和编辑器目录被 Git 忽略。
-- 客户端固定使用 `https://live.trading212.com/api/v0`，只允许五个明确的只读路径。
-- HTTP 请求方法固定为 `GET`；代码中没有通用公共请求、下单、撤单或 Pie 修改方法。
-- API 错误不读取或转发响应正文，不输出请求头、认证值或底层异常文本。
-- 客户端拒绝 HTTP 重定向，不会把 Basic Auth 请求转发到重定向目标。
-- `nextPagePath` 必须仍是官方 HTTPS 主机、`/api/v0` 前缀及允许的历史端点，防止认证头被带到其他地址。
-- 遇到 429 时使用服务端限流头延迟重试；历史数据的读取量默认有限。
-- 快照先写临时文件并原子替换，临时文件和最终文件在 runner/本机上设为仅当前用户可读写。
-- Actions 只暂存指定快照文件，并使用最小的 `contents: write` 权限。
+- Credentials are read only from `T212_API_KEY` and `T212_API_SECRET`.
+- `.env`, common credential files, private keys, and editor files are ignored by Git.
+- The client is fixed to `https://live.trading212.com/api/v0` and five explicit read-only paths.
+- Every HTTP request uses `GET`; there are no order placement, cancellation, or Pie modification methods.
+- Redirects are rejected so Basic Auth is never forwarded to a redirect target.
+- Pagination URLs must remain on the official HTTPS host and match an allowed history endpoint.
+- API response bodies, request headers, and underlying exception messages are never included in user-facing errors.
+- Rate-limit responses are retried using the server-provided timing headers.
+- Snapshots are written to a temporary file and atomically replaced.
+- GitHub Actions stages only `portfolio/latest.json`.
 
-## 运维责任
+## Repository visibility
 
-- 仓库必须保持私有，并限制协作者和 GitHub Actions 管理权限。
-- 在 Trading 212 中创建仅具读取权限的专用 key；绝不要授予交易权限。
-- 不要把秘密粘贴到聊天、Issue、PR、代码、命令参数或 Actions 输出。
-- 定期轮换 key；怀疑泄漏时立即在 Trading 212 撤销，并替换 GitHub secret。
-- 给默认分支配置合理的分支保护，同时允许受信任的同步工作流写入快照。
-- 提交前执行 `git diff --cached` 与秘密扫描；若秘密曾进入 Git 历史，仅删除文件并不够，必须撤销 key，并清理历史和所有副本。
+This source repository can be public because it contains only an empty placeholder snapshot. A repository that runs the sync against a real account should be private because the generated snapshot contains financial information.
 
-## 报告问题
+Use **Use this template** to create a separate private repository. Do not rely on a public fork becoming private.
 
-不要在公开 Issue 中报告潜在秘密。请先撤销相关凭据，再通过仓库所有者认可的私密渠道报告。
+## Operator responsibilities
+
+- Create a dedicated Trading 212 key with read-only permissions. Never grant trading permissions.
+- Keep the repository containing real snapshots private and restrict collaborator access.
+- Store credentials only in local environment variables and GitHub Actions Secrets.
+- Never paste credentials into chat, issues, pull requests, source code, or command arguments.
+- Rotate credentials regularly. Revoke them immediately if exposure is suspected.
+- Review staged changes and run a secret scanner before publishing.
+
+Deleting a leaked secret from a file is not enough. Revoke the credential first, then clean Git history and any copied logs or artifacts.
+
+## Reporting a vulnerability
+
+Do not report suspected credentials in a public issue. Revoke affected credentials and contact the repository owner through a private channel.

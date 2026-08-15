@@ -79,7 +79,8 @@ class Trading212Client:
     ) -> None:
         if not api_key or not api_secret:
             raise MissingCredentialsError(
-                "缺少 Trading 212 凭据；请设置 T212_API_KEY 和 T212_API_SECRET。"
+                "Trading 212 credentials are missing; set T212_API_KEY and "
+                "T212_API_SECRET."
             )
         self._authorization = self._build_authorization(api_key, api_secret)
         self._timeout = timeout
@@ -118,7 +119,7 @@ class Trading212Client:
     def _get_list(self, path: str) -> list[dict[str, Any]]:
         payload = self._get_json(path, expected_type=list)
         if not all(isinstance(item, dict) for item in payload):
-            raise APIError("Trading 212 API 列表项目格式无效。")
+            raise APIError("Trading 212 returned an invalid list item.")
         return payload
 
     def _paginated(self, path: str, *, max_items: int) -> list[dict[str, Any]]:
@@ -132,20 +133,20 @@ class Trading212Client:
 
         while next_path and len(items) < max_items:
             if next_path in seen:
-                raise APIError("Trading 212 API 返回了重复的分页游标。")
+                raise APIError("Trading 212 returned a repeated pagination cursor.")
             seen.add(next_path)
 
             page = self._get_json(next_path, expected_type=dict)
             page_items = page.get("items")
             if not isinstance(page_items, list):
-                raise APIError("Trading 212 API 返回了无效的分页数据。")
+                raise APIError("Trading 212 returned invalid pagination data.")
             if not all(isinstance(item, dict) for item in page_items):
-                raise APIError("Trading 212 API 分页项目格式无效。")
+                raise APIError("Trading 212 returned an invalid paginated item.")
 
             items.extend(page_items[: max_items - len(items)])
             raw_next = page.get("nextPagePath")
             if raw_next is not None and not isinstance(raw_next, str):
-                raise APIError("Trading 212 API 返回了无效的下一页地址。")
+                raise APIError("Trading 212 returned an invalid next-page address.")
             next_path = self._validated_next_path(raw_next) if raw_next else None
 
         return items
@@ -156,14 +157,14 @@ class Trading212Client:
         parsed = urlparse(absolute)
         base = urlparse(LIVE_BASE_URL)
         if (parsed.scheme, parsed.netloc) != (base.scheme, base.netloc):
-            raise APIError("Trading 212 API 返回了不受信任的下一页地址。")
+            raise APIError("Trading 212 returned an untrusted next-page address.")
 
         prefix = base.path.rstrip("/")
         if not parsed.path.startswith(f"{prefix}/"):
-            raise APIError("Trading 212 API 返回了无效的下一页路径。")
+            raise APIError("Trading 212 returned an invalid next-page path.")
         relative_path = parsed.path[len(prefix) :]
         if relative_path not in ALLOWED_PATHS:
-            raise APIError("Trading 212 API 返回了不允许的下一页路径。")
+            raise APIError("Trading 212 returned a disallowed next-page path.")
 
         # Re-encode the parsed query to avoid carrying fragments or user-info.
         query = urlencode(parse_qsl(parsed.query, keep_blank_values=True))
@@ -172,7 +173,7 @@ class Trading212Client:
     def _get_json(self, path: str, *, expected_type: type) -> Any:
         endpoint = path.split("?", 1)[0]
         if endpoint not in ALLOWED_PATHS:
-            raise APIError("拒绝访问未列入只读允许列表的 API 路径。")
+            raise APIError("Refused an API path outside the read-only allowlist.")
 
         url = f"{LIVE_BASE_URL}{path}"
         request = Request(
@@ -190,22 +191,24 @@ class Trading212Client:
                 with self._opener(request, timeout=self._timeout) as response:
                     payload = json.load(response)
                 if not isinstance(payload, expected_type):
-                    raise APIError("Trading 212 API 返回了意外的数据格式。")
+                    raise APIError("Trading 212 returned an unexpected data format.")
                 return payload
             except HTTPError as exc:
                 if exc.code == 429 and attempt < self._max_retries:
                     self._sleep(self._retry_delay(exc.headers))
                     continue
                 raise APIError(
-                    f"Trading 212 API 请求失败（HTTP {exc.code}）。",
+                    f"Trading 212 API request failed (HTTP {exc.code}).",
                     status=exc.code,
                 ) from None
             except (URLError, TimeoutError, OSError):
-                raise APIError("无法安全连接到 Trading 212 API。") from None
+                raise APIError(
+                    "Could not connect safely to the Trading 212 API."
+                ) from None
             except (json.JSONDecodeError, UnicodeDecodeError):
-                raise APIError("Trading 212 API 返回了无效的 JSON。") from None
+                raise APIError("Trading 212 returned invalid JSON.") from None
 
-        raise APIError("Trading 212 API 请求重试失败。")
+        raise APIError("Trading 212 API retries were exhausted.")
 
     @staticmethod
     def _retry_delay(headers: Any) -> float:
