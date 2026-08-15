@@ -1,0 +1,29 @@
+{
+  "generated_at": null,
+  "source": "Trading 212",
+  "environment": "live",
+  "account": {
+    "currency": null,
+    "total_value": null,
+    "cash": null,
+    "cash_in_pies": null,
+    "cash_reserved_for_orders": null,
+    "invested_value": null,
+    "investment_cost": null,
+    "realized_pnl": null,
+    "unrealized_pnl": null
+  },
+  "positions": [],
+  "pending_orders": [],
+  "recent_activity": [],
+  "derived": {
+    "cash_weight_pct": null,
+    "invested_weight_pct": null,
+    "largest_position": null
+  },
+  "sync_status": {
+    "core": "not_yet_synced",
+    "historical_orders": "not_yet_synced",
+    "transactions": "not_yet_synced"
+  }
+}

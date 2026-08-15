@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trading212-portfolio-sync"
+version = "0.1.0"
+description = "A read-only Trading 212 portfolio snapshot sync"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Private use" }
+
+[project.scripts]
+trading212-sync = "trading212_sync.__main__:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
