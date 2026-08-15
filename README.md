@@ -109,3 +109,16 @@ See [SECURITY.md](SECURITY.md) for the threat model and credential-handling deta
 
 This project uses the official Trading 212 Public API documentation for [authentication](https://docs.trading212.com/api/section/authentication/building-the-authorization-header), [account summaries](https://docs.trading212.com/api/accounts/getaccountsummary), [positions](https://docs.trading212.com/api/positions), [pending orders](https://docs.trading212.com/api/orders/orders), and [pagination](https://docs.trading212.com/api/section/pagination).
 
+
+## Disclosure of Delegation to Generative AI
+
+The authors declare the use of generative AI in the research and writing process. According to the GAIDeT taxonomy (2025), the following tasks were delegated to GAI tools under full human supervision:
+
+- Code generation
+- Code optimization
+- Text generation
+
+The GAI tool used were: Chat-GPT-5.6 Sol.
+Responsibility for the final manuscript lies entirely with the authors.
+GAI tools are not listed as authors and do not bear responsibility for the final outcomes.
+Declaration submitted by: Tingyu Chen
