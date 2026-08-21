@@ -80,10 +80,11 @@ To enable a daily sync, add a `schedule` entry under `on` in `.github/workflows/
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 18 * * *"
+    - cron: "0 16 * * *"
+      timezone: "Europe/London"
 ```
 
-GitHub cron uses UTC and scheduled runs can be delayed. Adjust the expression for your timezone and daylight-saving requirements.
+Adjust both the cron expression and the IANA timezone for your own routine. The timezone keeps the chosen local time stable across daylight-saving changes. GitHub scheduled runs can still be delayed, so choose a time with enough buffer before you need the snapshot.
 
 ## Snapshot contents
 

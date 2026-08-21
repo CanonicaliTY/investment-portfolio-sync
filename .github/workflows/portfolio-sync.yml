@@ -1,10 +1,13 @@
 name: Portfolio sync
 
+run-name: Portfolio sync · ${{ github.event_name }} · ${{ github.event.schedule || 'manual' }}
+
 on:
   workflow_dispatch:
-  # Optional schedule example (UTC). Uncomment and adjust for your timezone.
+  # Optional daily schedule. Uncomment and adjust the time and IANA timezone.
   # schedule:
-  #   - cron: "0 18 * * *"
+  #   - cron: "0 16 * * *"
+  #     timezone: "Europe/London"
 
 permissions:
   contents: write
@@ -19,10 +22,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
@@ -48,4 +51,3 @@ jobs:
           git add -- portfolio/latest.json
           git commit -m "chore: update portfolio snapshot"
           git push
-
